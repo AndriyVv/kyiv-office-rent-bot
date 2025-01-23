@@ -70,7 +70,7 @@ async def parse_and_filter_messages(messages, min_size, max_size, min_price_per_
             price_per_m2 = round(price_total / size, 2)  # Уточнённое вычисление цены за м²
 
             if (min_size <= size if max_size is None else min_size <= size <= max_size):
-                if min_price_per_m2 is None or max_price_per_m2 is None or (min_price_per_m2 <= price_per_m2 <= max_price_per_m2):
+                if (min_price_per_m2 is None or price_per_m2 >= min_price_per_m2) and (max_price_per_m2 is None or price_per_m2 <= max_price_per_m2):
                     # Генерация ключа для поиска ссылки
                     offer_key = f"{floor} {size}m2 ({price})"
                     link = None
@@ -120,7 +120,7 @@ async def size_filter_handler(callback_query: types.CallbackQuery):
     keyboard.add(
         types.InlineKeyboardButton("Низкий (до 20$ за м²)", callback_data=f"price_{min_size}_{max_size}_0_20"),
         types.InlineKeyboardButton("Средний (20$ - 30$ за м²)", callback_data=f"price_{min_size}_{max_size}_20_30"),
-        types.InlineKeyboardButton("Высокий (более 30$ за м²)", callback_data=f"price_{min_size}_{max_size}_30_None")
+        types.InlineKeyboardButton("Высокий (более 30$ за м²)", callback_data=f"price_{min_size}_{max_size}_30_100000")
     )
     await callback_query.message.answer("Выберите ценовой диапазон:", reply_markup=keyboard)
 
