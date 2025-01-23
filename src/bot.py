@@ -17,10 +17,9 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Инициализация Telethon
+bot = Bot(token=API_TOKEN)
+dp = Dispatcher(bot)
 telethon_client = TelegramClient('SkyMazafaker', TELEGRAM_API_ID, TELEGRAM_API_HASH)
-telethon_client.connect()
-if not telethon_client.is_user_authorized():
-    raise Exception("Сессия не авторизована. Запустите файл локально, чтобы сохранить сессию.")
 
 
 # Функция для получения сообщений с использованием пользовательского аккаунта
