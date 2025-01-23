@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher(bot)
 telethon_client = TelegramClient('SkyMazafaker', TELEGRAM_API_ID, TELEGRAM_API_HASH)
+telethon_client.connect()
 
 
 # Функция для получения сообщений с использованием пользовательского аккаунта
