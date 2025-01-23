@@ -16,10 +16,12 @@ CHANNEL_USERNAME = '@KyivOfficeRent'
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Инициализация бота и Telethon
-bot = Bot(token=API_TOKEN)
-dp = Dispatcher(bot)
+# Инициализация Telethon
 telethon_client = TelegramClient('SkyMazafaker', TELEGRAM_API_ID, TELEGRAM_API_HASH)
+telethon_client.connect()
+if not telethon_client.is_user_authorized():
+    raise Exception("Сессия не авторизована. Запустите файл локально, чтобы сохранить сессию.")
+
 
 # Функция для получения сообщений с использованием пользовательского аккаунта
 async def fetch_channel_messages():
@@ -151,5 +153,4 @@ async def price_filter_handler(callback_query: types.CallbackQuery):
 
 # Запуск бота
 if __name__ == "__main__":
-    telethon_client.start()
     executor.start_polling(dp, skip_updates=True)
