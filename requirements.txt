@@ -19,10 +19,10 @@ Telethon==1.38.1
 typing_extensions
 yarl
 python-telegram-bot
-requests
+requests>=2.31.0
 flask
 gunicorn
 Pillow
-google-api-python-client
-google-auth
-google-auth-oauthlib
+google-api-python-client>=2.100.0
+google-auth>=2.26.1
+google-auth-oauthlib>=1.0.0
