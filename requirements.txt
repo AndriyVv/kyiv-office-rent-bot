@@ -15,7 +15,7 @@ pyaes
 pyasn1
 pytz
 rsa
-Telethon
+Telethon==1.38.1
 typing_extensions
 yarl
 python-telegram-bot
