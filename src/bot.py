@@ -196,45 +196,41 @@ def init_drive_service():
 #         logger.exception("Помилка завантаження колажу в Google Drive")
 #         return None
 
-async def upload_collage_to_drive(collage_bytes: bytes, filename: str, folder_id: str) -> Optional[str]:
+def upload_collage_to_drive(collage_bytes: bytes, filename: str, folder_id: str) -> Optional[str]:
     if not USE_DRIVE:
         return None
 
     try:
-        loop = asyncio.get_running_loop()
         service = init_drive_service()
 
-        def _do_upload():
-            safe_name = filename.replace("'", "\\'")
-            query = f"name = '{safe_name}' and '{folder_id}' in parents and trashed = false"
+        safe_name = filename.replace("'", "\\'")
+        query = f"name = '{safe_name}' and '{folder_id}' in parents and trashed = false"
 
-            # 1) Check existing file
-            resp = service.files().list(
-                q=query,
-                spaces="drive",
-                fields="files(id, name)",
-                pageSize=1,
-            ).execute()
+        # Check existing file
+        resp = service.files().list(
+            q=query,
+            spaces="drive",
+            fields="files(id, name)",
+            pageSize=1,
+        ).execute()
+        files = resp.get("files", [])
 
-            files = resp.get("files", [])
-
-            if files:
-                return files[0]["id"]
-
-            # 2) Upload new file
+        if files:
+            file_id = files[0]["id"]
+        else:
+            # Upload new file (resumable)
             media = MediaIoBaseUpload(
                 BytesIO(collage_bytes),
                 mimetype="image/jpeg",
                 resumable=True,
             )
-            file_metadata = {
+            metadata = {
                 "name": filename,
                 "parents": [folder_id],
             }
 
-            # upload via chunking
             request = service.files().create(
-                body=file_metadata,
+                body=metadata,
                 media_body=media,
                 fields="id",
             )
@@ -245,16 +241,11 @@ async def upload_collage_to_drive(collage_bytes: bytes, filename: str, folder_id
 
             file_id = response.get("id")
 
-            # 3) Set public permission
+            # Set public permission
             service.permissions().create(
                 fileId=file_id,
                 body={"type": "anyone", "role": "reader"},
             ).execute()
-
-            return file_id
-
-        # Execute heavy Drive operations in a thread (non-blocking)
-        file_id = await loop.run_in_executor(None, _do_upload)
 
         return f"https://drive.google.com/uc?id={file_id}"
 
