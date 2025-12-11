@@ -144,30 +144,84 @@ def init_drive_service():
     return _drive_service
 
 
-def upload_collage_to_drive(collage_bytes: bytes, filename: str, folder_id: str) -> Optional[str]:
-    """
-    Загружаем коллаж в Google Drive и возвращаем URL вида https://drive.google.com/uc?id=FILE_ID.
-    (Используем только как хранилище и кэш, НЕ как URL для Telegram)
-    """
+# def upload_collage_to_drive(collage_bytes: bytes, filename: str, folder_id: str) -> Optional[str]:
+#     """
+#     Загружаем коллаж в Google Drive и возвращаем URL вида https://drive.google.com/uc?id=FILE_ID.
+#     (Используем только как хранилище и кэш, НЕ как URL для Telegram)
+#     """
+#     if not USE_DRIVE:
+#         return None
+#     try:
+#         service = init_drive_service()
+
+#         safe_name = filename.replace("'", "\\'")
+#         query = f"name = '{safe_name}' and '{folder_id}' in parents and trashed = false"
+
+#         resp = service.files().list(
+#             q=query,
+#             spaces="drive",
+#             fields="files(id, name)",
+#             pageSize=1,
+#         ).execute()
+#         files = resp.get("files", [])
+
+#         if files:
+#             file_id = files[0]["id"]
+#         else:
+#             media = MediaIoBaseUpload(
+#                 BytesIO(collage_bytes),
+#                 mimetype="image/jpeg",
+#                 resumable=True,
+#             )
+#             file_metadata = {
+#                 "name": filename,
+#                 "parents": [folder_id],
+#             }
+#             created = service.files().create(
+#                 body=file_metadata,
+#                 media_body=media,
+#                 fields="id",
+#             ).execute()
+#             file_id = created.get("id")
+
+#             service.permissions().create(
+#                 fileId=file_id,
+#                 body={"type": "anyone", "role": "reader"},
+#             ).execute()
+
+#         url = f"https://drive.google.com/uc?id={file_id}"
+#         return url
+
+#     except Exception:
+#         logger.exception("Помилка завантаження колажу в Google Drive")
+#         return None
+
+async def upload_collage_to_drive(collage_bytes: bytes, filename: str, folder_id: str) -> Optional[str]:
     if not USE_DRIVE:
         return None
+
     try:
+        loop = asyncio.get_running_loop()
         service = init_drive_service()
 
-        safe_name = filename.replace("'", "\\'")
-        query = f"name = '{safe_name}' and '{folder_id}' in parents and trashed = false"
+        def _do_upload():
+            safe_name = filename.replace("'", "\\'")
+            query = f"name = '{safe_name}' and '{folder_id}' in parents and trashed = false"
 
-        resp = service.files().list(
-            q=query,
-            spaces="drive",
-            fields="files(id, name)",
-            pageSize=1,
-        ).execute()
-        files = resp.get("files", [])
+            # 1) Check existing file
+            resp = service.files().list(
+                q=query,
+                spaces="drive",
+                fields="files(id, name)",
+                pageSize=1,
+            ).execute()
 
-        if files:
-            file_id = files[0]["id"]
-        else:
+            files = resp.get("files", [])
+
+            if files:
+                return files[0]["id"]
+
+            # 2) Upload new file
             media = MediaIoBaseUpload(
                 BytesIO(collage_bytes),
                 mimetype="image/jpeg",
@@ -177,20 +231,32 @@ def upload_collage_to_drive(collage_bytes: bytes, filename: str, folder_id: str)
                 "name": filename,
                 "parents": [folder_id],
             }
-            created = service.files().create(
+
+            # upload via chunking
+            request = service.files().create(
                 body=file_metadata,
                 media_body=media,
                 fields="id",
-            ).execute()
-            file_id = created.get("id")
+            )
 
+            response = None
+            while response is None:
+                status, response = request.next_chunk()
+
+            file_id = response.get("id")
+
+            # 3) Set public permission
             service.permissions().create(
                 fileId=file_id,
                 body={"type": "anyone", "role": "reader"},
             ).execute()
 
-        url = f"https://drive.google.com/uc?id={file_id}"
-        return url
+            return file_id
+
+        # Execute heavy Drive operations in a thread (non-blocking)
+        file_id = await loop.run_in_executor(None, _do_upload)
+
+        return f"https://drive.google.com/uc?id={file_id}"
 
     except Exception:
         logger.exception("Помилка завантаження колажу в Google Drive")
