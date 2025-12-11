@@ -1154,9 +1154,49 @@ async def fetch_channel_messages_for(channel_username: str, limit: Optional[int]
         return []
 
 # ----------------- Startup -----------------
+# async def run_bot():
+#     await telethon_client.start()
+#     await dp.start_polling(bot)
+
+
+# if __name__ == "__main__":
+#     try:
+#         asyncio.run(run_bot())
+#     except Exception as e:
+#         logger.exception(f"Fatal error: {e}")
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+async def safe_polling():
+    delay = 1
+
+    while True:
+        try:
+            logger.info("Starting polling...")
+            await dp.start_polling(
+                bot,
+                polling_timeout=5,  # VERY IMPORTANT ON HEROKU
+                allowed_updates=dp.resolve_used_update_types(),
+                handle_signals=False
+            )
+        except Exception as e:
+            logger.error(f"Polling failed: {e}. Retrying in {delay}s...")
+            await asyncio.sleep(delay)
+            delay = min(delay * 2, 60)
+        else:
+            delay = 1   # reset delay if polling stops cleanly
+
+
 async def run_bot():
+    # Telethon client
     await telethon_client.start()
-    await dp.start_polling(bot)
+
+    # Run Telethon in background
+    asyncio.create_task(telethon_client.run_until_disconnected())
+
+    # Start Telegram bot polling
+    await safe_polling()
 
 
 if __name__ == "__main__":
@@ -1164,3 +1204,4 @@ if __name__ == "__main__":
         asyncio.run(run_bot())
     except Exception as e:
         logger.exception(f"Fatal error: {e}")
+
